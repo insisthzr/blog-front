@@ -1,62 +1,71 @@
-/**
- * Created by isaac on 29/05/2017.
- */
-
 class Blog {
     constructor() {
-        this.host = "https://blog.thisishzr.me/api/v1";
+        this.host = "https://blog.thisishzr.me/api/v1"
 
         this.page = {
             index: 0,
             size: 5,
             count: 0,
-        };
+        }
 
         this.intToMonth = {
-            1: 'January', 2: 'February', 3: 'March', 4: 'April', 5: 'May', 6: 'June',
-            7: 'July', 8: 'August', 9: 'September', 10: 'October', 11: 'November', 12: 'December'
-        };
+            1: 'January',
+            2: 'February',
+            3: 'March',
+            4: 'April',
+            5: 'May',
+            6: 'June',
+            7: 'July',
+            8: 'August',
+            9: 'September',
+            10: 'October',
+            11: 'November',
+            12: 'December'
+        }
 
-        this.label = '';
+        this.label = ''
     }
 
-    init() {
+    init() {}
 
+    removeChildren(node) {
+        while (node.firstChild) {
+            node.removeChild(node.firstChild)
+        }
     }
 
     changeURL() {
-        let url = location.hash;
-        let $label = $(this.label);
+        let $label = document.getElementById(this.label)
         if ($label) {
-            $label.removeClass('active');
+            $label.classList.remove('active')
         }
-        $(url).addClass('active');
-        this.label = url;
+        let url = location.hash
+        url = url.replace('#', '')
+        document.getElementById(url).classList.add('active')
+        this.label = url
         switch (url) {
-
-            case '#home':
-                this.page.index = 0;
-                return this.showMain();
-                break;
-            case '#login':
-                return this.showLogin();
-                break;
-            case '#create':
+            case 'home':
+                this.page.index = 0
+                return this.showMain()
+                break
+            case 'login':
+                return this.showLogin()
+                break
+            case 'create':
                 if (!localStorage.getItem('token')) {
-                    return location.hash = '#login';
+                    return
                 }
-                return this.showCreatePost();
-                break;
+                return this.showCreatePost()
+                break
             default:
         }
     }
 
 
     showMain() {
-        let p1 = this.countPost();
-        let p2 = this.showPosts();
-        let p3 = this.showArchives();
-        return Promise.all([p1, p2, p3])
+        return this.countPost()
+            .then(this.showPosts())
+            .then(this.showArchives())
     }
 
     countPost() {
@@ -64,86 +73,98 @@ class Blog {
             const url = `${this.host}/posts/count`;
             $.getJSON(url, (data, status) => {
                 if (status !== 'success') {
-                    return reject();
+                    return reject()
                 }
-                this.page.count = Math.ceil(data.count / this.page.size);
-                return resolve();
-            });
-        });
+                this.page.count = Math.ceil(data.count / this.page.size)
+                return resolve()
+            })
+        })
     }
 
     showPosts() {
         return new Promise((resolve, reject) => {
-            let skip = this.page.index * this.page.size;
-            let limit = this.page.size;
-            const url = `${this.host}/posts?skip=${skip}&limit=${limit}`;
+            let skip = this.page.index * this.page.size
+            let limit = this.page.size
+            const url = `${this.host}/posts?skip=${skip}&limit=${limit}`
             $.getJSON(url, (data, status) => {
                 if (status !== 'success') {
                     return reject();
                 }
-                let $main = $('#main');
-                $main.empty();
-                let $posts = $('<div></div>');
+                let $main = document.getElementById('main')
+                this.removeChildren($main)
+                let $posts = document.createElement('div')
                 for (let post of data.posts) {
-                    $posts.append(this.genPost(post));
+                    $posts.appendChild(this.genPost(post))
                 }
-                $main.append($posts);
-                let $button = this.genPageButton();
-                $main.append($button);
-                resolve();
-            });
-        });
+                $main.appendChild($posts)
+                let $button = this.genPageButton()
+                $main.appendChild($button)
+                return resolve()
+            })
+        })
     }
 
     genPost(post) {
-        let $title = $(`<h2></h2>`);
-        $title.html(post.title);
-        $title.addClass("blog-post-title");
-        let $meta = $('<p></p>');
-        $meta.addClass('blog-post-meta');
-        let date = new Date(1000 * post.created_at);
-        let meta = `${date.toDateString()} by <a href="#">${post.created_by.email}</a>`;
-        $meta.html(meta);
-        let $body = $('<div></div>');
-        $body.html(post.body);
-        let $post = $(`<div></div>`);
-        $post.addClass("blog-post");
-        $post.append($title);
-        $post.append($body);
-        $post.append($meta);
+        let $title = document.createElement('h2')
+        $title.innerHTML = post.title;
+        $title.classList.add("blog-post-title")
+
+        let $meta = document.createElement('p')
+        $meta.classList.add('blog-post-meta')
+        let date = new Date(1000 * post.created_at)
+        $meta.innerHTML = `${date.toLocaleString()} by ${post.created_by.email}`
+        let $body = document.createElement('div')
+        $body.innerHTML = post.body
+
+        let $post = document.createElement('div')
+        $post.classList.add("blog-post")
+        $post.appendChild($title)
+        $post.appendChild($body)
+        $post.appendChild($meta)
         return $post;
     }
 
     genPageButton() {
-        let $nav = $('<nav></nav>');
-        let $previous = $('<button type="button" class="btn btn-default">Previous</button>');
-        $previous.click(() => {
+        let $nav = document.createElement('nav')
+        $nav.classList.add('blog-pagination')
+        let $prev = document.createElement('a')
+        $prev.classList.add('btn', 'btn-outline-primary')
+        $prev.innerHTML = 'prev'
+        if (this.page.index === 0) {
+            $prev.classList.add('disabled')
+        }
+        $prev.onclick = () => {
             this.page.index--;
             if (this.page.index < 0) {
                 this.page.index = 0;
             }
             return this.showMain()
-        });
-        let $next = $('<button type="button" class="btn btn-default">Next</button>');
-        $next.click(() => {
+        }
+        let $next = document.createElement('a')
+        $next.classList.add('btn', 'btn-outline-primary')
+        $next.innerHTML = 'next'
+        if (this.page.index === this.page.count - 1) {
+            $next.classList.add('disabled')
+        }
+        $next.onclick = () => {
             this.page.index++;
             if (this.page.index >= this.page.count) {
-                this.page.index = this.page.count - 1;
+                this.page.index = this.page.count - 1
             }
             return this.showMain()
-        });
-        $nav.append($previous);
-        $nav.append($next);
-        return $nav;
+        }
+        $nav.appendChild($prev)
+        $nav.appendChild($next)
+        return $nav
     }
 
     login() {
         return new Promise((resolve, reject) => {
-            const url = `${this.host}/users/login`;
+            const url = `${this.host}/users/login`
             let postBody = JSON.stringify({
-                email: $('#email').val(),
-                password: $('#password').val(),
-            });
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value,
+            })
             $.ajax({
                 type: 'POST',
                 url: url,
@@ -153,48 +174,72 @@ class Blog {
                         return reject();
                     }
                     localStorage.setItem('token', data.token);
-                    resolve();
+                    return resolve();
                 },
                 contentType: "application/json",
-            });
-        });
+            })
+        })
     }
 
     showLogin() {
         return new Promise((resolve, reject) => {
-            let $main = $('#main');
-            let $form = this.genLogin();
-            $main.empty();
-            $main.append($form);
-            resolve();
+            let $main = document.getElementById('main')
+            let $form = this.genLogin()
+            this.removeChildren($main)
+            $main.appendChild($form)
+            return resolve()
         });
     }
 
     genLogin() {
-        let $form = $('<form class="form-signin"></form>');
-        $form.append('<h2 class="form-signin-heading">Please sign in</h2>');
-        $form.append('<label for="inputEmail" class="sr-only">Email address</label>');
-        $form.append('<input id="email" id="inputEmail" class="form-control" placeholder="Email address" required autofocus>');
-        $form.append('<label for="inputPassword" class="sr-only">Password</label>');
-        $form.append('<input id="password" type="password" id="inputPassword" class="form-control" placeholder="Password" required>');
-        let $btn = $('<button class="btn btn-lg btn-primary btn-block" type="submit">Sign in</button>');
-        $btn.click(() => {
+        let $container = document.createElement('div')
+        $container.classList.add('login-container')
+
+        let $form = document.createElement('form')
+        $form.classList.add('form-signin')
+
+        let $header = document.createElement('h2')
+        $header.classList.add('form-signin-heading')
+        $header.innerHTML = 'Please sign in'
+        $form.appendChild($header)
+
+        let $email = document.createElement('input')
+        $email.id = 'email'
+        $email.placeholder = 'Email address'
+        $email.classList.add('form-control')
+        $form.appendChild($email)
+
+        let $password = document.createElement('input')
+        $password.id = 'password'
+        $password.type, 'password'
+        $password.placeholder = 'Password'
+        $password.classList.add('form-control')
+        $form.appendChild($password)
+
+        let $submit = document.createElement('button')
+        $submit.classList.add('btn', 'btn-lg', 'btn-primary', 'btn-block')
+        $submit.type = 'submit'
+        $submit.innerHTML = 'Sign in'
+        $submit.onclick = () => {
             this.login()
                 .then(() => {
                     location.hash = '#home';
                 });
-        });
-        $form.append($btn);
-        return $form;
+        }
+        $form.appendChild($submit);
+
+        $container.appendChild($form)
+
+        return $container;
     }
 
-    createPost() {
+    fetchPosts() {
         return new Promise((resolve, reject) => {
             const url = `${this.host}/posts`;
             let postBody = JSON.stringify({
-                title: $('#title').val(),
-                body: $('#body').val(),
-            });
+                title: document.getElementById('title').innerHTML,
+                body: document.getElementById('body').innerHTML,
+            })
             $.ajax({
                 type: 'POST',
                 url: url,
@@ -209,33 +254,52 @@ class Blog {
                     'Content-Type': 'application/json',
                     Authorization: 'Bearer ' + localStorage.getItem('token'),
                 }
-            });
-        });
+            })
+        })
     }
 
     showCreatePost() {
         return new Promise((resolve, reject) => {
-            let $main = $('#main');
-            let $post = $('<div id="login" class="input-group"></div>');
-            let $title = $('<input id="title" type="text" class="form-control" placeholder="Title">');
-            let $body = $('<textarea id="body" class="form-control" rows="10" placeholder="Body">');
-            let $btn = $('<button type="button" class="btn btn-default">Submit</button>');
-            $btn.click(() => {
-                return this.createPost()
+            let $main = document.getElementById('main')
+            this.removeChildren($main)
+
+            let $post = document.createElement('div')
+            $post.id = 'login'
+            $post.classList.add('input-group')
+
+            let $title = document.createElement('input')
+            $title.id = 'title'
+            $title.type = 'text'
+            $title.placeholder = 'Title'
+            $title.classList.add('form-control')
+            $post.appendChild($title)
+
+            let $body = document.createElement('textarea')
+            $body.id = 'body'
+            $body.classList.add('form-control')
+            $body.rows = '10'
+            $body.placeholder = 'Body'
+            $post.appendChild($body)
+
+            let $btn = document.createElement('button')
+            $btn.type = 'button'
+            $btn.classList.add('btn', 'btn-default')
+            $btn.innerHTML = 'Submit'
+            $btn.onclick = () => {
+                return this.fetchPosts()
                     .then(() => {
                         location.hash = '#home';
                     });
-            });
-            $post.append($title);
-            $post.append($body);
-            $post.append($btn);
-            $main.empty();
-            $main.append($post);
-            resolve();
+            }
+            $post.appendChild($btn)
+
+            $main.appendChild($post)
+
+            return resolve();
         });
     }
 
-    listArchives() {
+    fetchArchives() {
         return new Promise((resolve, reject) => {
             const url = this.host + '/archives';
             $.ajax({
@@ -247,25 +311,29 @@ class Blog {
                     }
                     return resolve(data.archives);
                 },
-            });
-        });
+            })
+        })
     }
 
     showArchives() {
-        return this.listArchives()
+        return this.fetchArchives()
             .then((archives) => {
-                let $archives = $('#archives');
-                $archives.empty();
-                $archives.append($('<h4>Archives</h4>'));
-                $archives.append(this.genArchives(archives));
+                let $archives = document.getElementById('archives')
+                this.removeChildren($archives)
+                let $header = document.createElement('h4')
+                $header.innerHTML = 'Archives'
+                $archives.appendChild($header)
+                $archives.appendChild(this.genArchives(archives));
             });
     }
 
     genArchives(archives) {
-        let $archives = $('<ol class="list-unstyled"></ol>');
+        let $archives = document.createElement('ol')
+        $archives.classList.add('list-unstyled"')
         for (let archive of archives) {
-            let $archive = $(`<li><a href="#">${this.intToMonth[archive.month]} ${archive.year}</a></li>`);
-            $archives.append($archive);
+            let $archive = document.createElement('li')
+            $archive.innerHTML = `${this.intToMonth[archive.month]} ${archive.year}`
+            $archives.appendChild($archive);
         }
         return $archives;
     }
@@ -274,7 +342,6 @@ class Blog {
 
 let blog = new Blog();
 
-$(document).ready(() => {
+window.onload = () => {
     location.hash = '#home';
-});
-
+};
