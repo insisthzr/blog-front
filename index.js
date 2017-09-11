@@ -4,7 +4,7 @@ class Blog {
 
         this.page = {
             index: 0,
-            size: 5,
+            sizePerPage: 5,
             count: 0,
         }
 
@@ -48,9 +48,6 @@ class Blog {
                 this.page.index = 0
                 return this.showMain()
                 break
-            case 'login':
-                return this.showLogin()
-                break
             case 'create':
                 if (!localStorage.getItem('token')) {
                     return
@@ -64,63 +61,69 @@ class Blog {
 
     showMain() {
         return this.countPost()
+            .then(this.getPosts())
             .then(this.showPosts())
+            .then(this.getArchives())
             .then(this.showArchives())
     }
 
     countPost() {
-        return new Promise((resolve, reject) => {
-            const url = `${this.host}/posts/count`;
-            $.getJSON(url, (data, status) => {
-                if (status !== 'success') {
-                    return reject()
+        return fetch(`${this.host}/posts/count`)
+            .then(response => {
+                if (!response.ok) {
+                    return new Error(response.statusText)
                 }
-                this.page.count = Math.ceil(data.count / this.page.size)
-                return resolve()
+                return response.json()
+            }).then((data) => {
+                this.page.count = Math.ceil(data.count / this.page.sizePerPage)
             })
-        })
     }
 
-    showPosts() {
-        return new Promise((resolve, reject) => {
-            let skip = this.page.index * this.page.size
-            let limit = this.page.size
-            const url = `${this.host}/posts?skip=${skip}&limit=${limit}`
-            $.getJSON(url, (data, status) => {
-                if (status !== 'success') {
-                    return reject();
+    getPosts() {
+        let skip = this.page.index * this.page.sizePerPage
+        let limit = this.page.sizePerPage
+        const url = `${this.host}/posts?skip=${skip}&limit=${limit}`
+        return fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    return new Error(response.statusText)
                 }
-                let $main = document.getElementById('main')
-                this.removeChildren($main)
-                let $posts = document.createElement('div')
-                for (let post of data.posts) {
-                    $posts.appendChild(this.genPost(post))
-                }
-                $main.appendChild($posts)
-                let $button = this.genPageButton()
-                $main.appendChild($button)
-                return resolve()
+                return response.json()
             })
-        })
+    }
+
+    showPosts(data) {
+        console.log(data)
+        let $main = document.getElementById('main')
+        this.removeChildren($main)
+        let $posts = document.createElement('div')
+        for (let post of data.posts) {
+            $posts.appendChild(this.genPost(post))
+        }
+        $main.appendChild($posts)
+        let $button = this.genPageButton()
+        $main.appendChild($button)
     }
 
     genPost(post) {
+        let $post = document.createElement('div')
+        $post.classList.add("blog-post")
+
         let $title = document.createElement('h2')
         $title.innerHTML = post.title;
         $title.classList.add("blog-post-title")
+        $post.appendChild($title)
 
         let $meta = document.createElement('p')
         $meta.classList.add('blog-post-meta')
         let date = new Date(1000 * post.created_at)
         $meta.innerHTML = `${date.toLocaleString()} by ${post.created_by.email}`
+        $post.appendChild($meta)
+
         let $body = document.createElement('div')
         $body.innerHTML = post.body
-
-        let $post = document.createElement('div')
-        $post.classList.add("blog-post")
-        $post.appendChild($title)
         $post.appendChild($body)
-        $post.appendChild($meta)
+
         return $post;
     }
 
@@ -158,104 +161,48 @@ class Blog {
         return $nav
     }
 
-    login() {
-        return new Promise((resolve, reject) => {
-            const url = `${this.host}/users/login`
-            let postBody = JSON.stringify({
-                email: document.getElementById('email').value,
-                password: document.getElementById('password').value,
-            })
-            $.ajax({
-                type: 'POST',
-                url: url,
-                data: postBody,
-                success: (data, status) => {
-                    if (status !== 'success') {
-                        return reject();
-                    }
-                    localStorage.setItem('token', data.token);
-                    return resolve();
-                },
-                contentType: "application/json",
-            })
+    postLogin() {
+        const url = `${this.host}/users/login`
+        let headers = new Headers({
+            'Content-Type': 'application/json',
         })
-    }
-
-    showLogin() {
-        return new Promise((resolve, reject) => {
-            let $main = document.getElementById('main')
-            let $form = this.genLogin()
-            this.removeChildren($main)
-            $main.appendChild($form)
-            return resolve()
-        });
-    }
-
-    genLogin() {
-        let $container = document.createElement('div')
-        $container.classList.add('login-container')
-
-        let $form = document.createElement('form')
-        $form.classList.add('form-signin')
-
-        let $header = document.createElement('h2')
-        $header.classList.add('form-signin-heading')
-        $header.innerHTML = 'Please sign in'
-        $form.appendChild($header)
-
-        let $email = document.createElement('input')
-        $email.id = 'email'
-        $email.placeholder = 'Email address'
-        $email.classList.add('form-control')
-        $form.appendChild($email)
-
-        let $password = document.createElement('input')
-        $password.id = 'password'
-        $password.type, 'password'
-        $password.placeholder = 'Password'
-        $password.classList.add('form-control')
-        $form.appendChild($password)
-
-        let $submit = document.createElement('button')
-        $submit.classList.add('btn', 'btn-lg', 'btn-primary', 'btn-block')
-        $submit.type = 'submit'
-        $submit.innerHTML = 'Sign in'
-        $submit.onclick = () => {
-            this.login()
-                .then(() => {
-                    location.hash = '#home';
-                });
-        }
-        $form.appendChild($submit);
-
-        $container.appendChild($form)
-
-        return $container;
-    }
-
-    fetchPosts() {
-        return new Promise((resolve, reject) => {
-            const url = `${this.host}/posts`;
-            let postBody = JSON.stringify({
-                title: document.getElementById('title').innerHTML,
-                body: document.getElementById('body').innerHTML,
-            })
-            $.ajax({
-                type: 'POST',
-                url: url,
-                data: postBody,
-                success: (data, status) => {
-                    if (status !== 'success') {
-                        return reject();
-                    }
-                    return resolve();
-                },
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: 'Bearer ' + localStorage.getItem('token'),
+        let req = new Request(url, {
+            method: "POST",
+            mode: 'cors',
+            body: JSON.stringify({
+                email: document.getElementById('inputEmail').value,
+                password: document.getElementById('inputPassword').value,
+            }),
+            headers: headers,
+        })
+        return fetch(req)
+            .then(response => {
+                if (!response.ok) {
+                    return new Error(response.statusText)
                 }
+                return response.json()
+            }).then(data => {
+                localStorage.setItem('token', data.token);
             })
+    }
+
+    postPosts() {
+        const url = `${this.host}/posts`;
+        let headers = new Headers({
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + localStorage.getItem('token'),
         })
+        let postBody = JSON.stringify({
+            title: document.getElementById('title').innerHTML,
+            body: document.getElementById('body').innerHTML,
+        })
+        return fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    return new Error(response.statusText)
+                }
+                return response.json()
+            })
     }
 
     showCreatePost() {
@@ -286,7 +233,7 @@ class Blog {
             $btn.classList.add('btn', 'btn-default')
             $btn.innerHTML = 'Submit'
             $btn.onclick = () => {
-                return this.fetchPosts()
+                return this.postPosts()
                     .then(() => {
                         location.hash = '#home';
                     });
@@ -299,24 +246,19 @@ class Blog {
         });
     }
 
-    fetchArchives() {
-        return new Promise((resolve, reject) => {
-            const url = this.host + '/archives';
-            $.ajax({
-                type: 'GET',
-                url: url,
-                success: (data, status) => {
-                    if (status !== 'success') {
-                        return reject();
-                    }
-                    return resolve(data.archives);
-                },
+    getArchives() {
+        const url = this.host + '/archives';
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    return new Error(response.statusText)
+                }
+                return response.json()
             })
-        })
     }
 
     showArchives() {
-        return this.fetchArchives()
+        return this.getArchives()
             .then((archives) => {
                 let $archives = document.getElementById('archives')
                 this.removeChildren($archives)
@@ -328,7 +270,7 @@ class Blog {
     }
 
     genArchives(archives) {
-        let $archives = document.createElement('ol')
+        let $archives = document.createElement('ul')
         $archives.classList.add('list-unstyled"')
         for (let archive of archives) {
             let $archive = document.createElement('li')
@@ -343,5 +285,14 @@ class Blog {
 let blog = new Blog();
 
 window.onload = () => {
-    location.hash = '#home';
-};
+    location.hash = '#home'
+    let $loginBtn = document.getElementById('login-btn')
+    $loginBtn.onclick = () => {
+        $email = document.getElementById('inputEmail')
+        $password = document.getElementById('inputPassword')
+        blog.postLogin()
+            .then(() => {
+                location.hash = "#home"
+            })
+    }
+}
